@@ -2,266 +2,287 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<title>Voo do Coleirinho</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jogos Kassio</title>
 <style>
-  body {
+  html, body {
     margin: 0;
-    background: radial-gradient(circle at top, #0f172a, #020617);
-    color: #fff;
-    font-family: system-ui, -apple-system, Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-  }
-
-  .app {
-    width: 100%;
-    max-width: 420px;
-    padding: 16px;
-    box-sizing: border-box;
-  }
-
-  h1 {
-    text-align: center;
-    margin: 8px 0 16px;
-    font-size: 22px;
-    letter-spacing: .5px;
-  }
-
-  .cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .card {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 18px;
+    padding: 0;
     overflow: hidden;
-    text-decoration: none;
-    color: #fff;
-    background: #020617;
-    box-shadow: 0 20px 40px rgba(0,0,0,.5);
-    border: 1px solid rgba(255,255,255,.08);
-    transition: transform .15s ease, box-shadow .15s ease;
+    font-family: Arial, sans-serif;
+    background: #87CEEB;
   }
 
-  .card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(2,6,23,.85), rgba(2,6,23,.1) 50%);
-    pointer-events: none;
-  }
-
-  .label {
-    position: absolute;
-    left: 12px;
-    bottom: 12px;
-    z-index: 2;
-    font-weight: 600;
-    letter-spacing: .3px;
-  }
-
-  .hint {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    z-index: 2;
-    font-size: 12px;
-    opacity: .8;
-  }
-
-  canvas {
-    width: 100%;
-    height: 100%;
+  #gameCanvas {
     display: block;
   }
 
-  .card:hover {
-    transform: translateY(-2px) scale(1.01);
-    box-shadow: 0 30px 60px rgba(0,0,0,.7);
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    font-size: 26px;
+    text-align: center;
+  }
+
+  #overlay button {
+    margin-top: 20px;
+    padding: 16px 36px;
+    font-size: 22px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    background: #ffca28;
+  }
+
+  #record {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 16px;
+    color: #1b3a1b;
+    background: rgba(255,255,255,0.75);
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+
+  #meters {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    color: #1b3a1b;
+    background: rgba(255,255,255,0.75);
+    padding: 6px 14px;
+    border-radius: 10px;
   }
 </style>
 </head>
 <body>
 
-<div class="app">
-  <h1>Escolha seu jogo</h1>
+<canvas id="gameCanvas"></canvas>
+<div id="record">Recorde: 0 m</div>
+<div id="meters">0 m</div>
 
-  <div class="cards">
-    <a class="card" href="/jogodacobrinha/">
-      <canvas id="snakePrev"></canvas>
-      <div class="label">Snake</div>
-      <div class="hint">Jogar</div>
-    </a>
-
-    <a class="card" href="/voacoleirinho/">
-      <canvas id="birdPrev"></canvas>
-      <div class="label">Voa Coleirinho</div>
-      <div class="hint">Jogar</div>
-    </a>
-  </div>
+<div id="overlay">
+  <div id="overlayText">Voo do Coleirinho</div>
+  <button id="playBtn">Jogar</button>
 </div>
 
 <script>
-// ---------- SNAKE PREVIEW ----------
-(function(){
-  const c = document.getElementById("snakePrev");
-  const ctx = c.getContext("2d");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const overlay = document.getElementById("overlay");
+const overlayText = document.getElementById("overlayText");
+const playBtn = document.getElementById("playBtn");
 
-  function resize(){
-    c.width = c.clientWidth;
-    c.height = c.clientHeight;
+let record = parseInt(localStorage.getItem("recordColeirinho")) || 0;
+document.getElementById("record").innerText = "Recorde: " + record + " m";
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+let bird, obstacles, gravity, jumpForce, speed, meters, gameOver, running;
+let groundOffset = 0;
+
+function init() {
+  bird = {
+    x: canvas.width * 0.25,
+    y: canvas.height / 2,
+    vy: 0,
+    r: 18
+  };
+
+  obstacles = [];
+  gravity = 0.35;
+  jumpForce = -6;
+  speed = 2;
+  meters = 0;
+  gameOver = false;
+  running = false;
+  groundOffset = 0;
+
+  document.getElementById("meters").innerText = "0 m";
+  overlay.style.display = "flex";
+  overlayText.innerText = "Voo do Coleirinho";
+  playBtn.innerText = "Jogar";
+}
+
+function startGame() {
+  overlay.style.display = "none";
+  running = true;
+}
+
+function spawnObstacle() {
+  const gap = 200;
+  const topHeight = 80 + Math.random() * (canvas.height - gap - 200);
+  obstacles.push({
+    x: canvas.width + 60,
+    top: topHeight,
+    bottom: topHeight + gap,
+    w: 48
+  });
+}
+
+let lastSpawn = 0;
+
+function drawBackground() {
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#7ec8ff");
+  sky.addColorStop(1, "#dff5ff");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#6fbf73";
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height * 0.7);
+  ctx.quadraticCurveTo(canvas.width * 0.25, canvas.height * 0.55, canvas.width * 0.5, canvas.height * 0.7);
+  ctx.quadraticCurveTo(canvas.width * 0.75, canvas.height * 0.85, canvas.width, canvas.height * 0.7);
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.lineTo(0, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+
+  groundOffset = (groundOffset - speed) % 40;
+  ctx.fillStyle = "#3e8e41";
+  for (let x = groundOffset; x < canvas.width; x += 40) {
+    ctx.fillRect(x, canvas.height - 30, 20, 30);
   }
-  resize();
-  window.addEventListener("resize", resize);
+}
 
-  const cell = 12;
-  let cols, rows;
-  let snake = [{x:5,y:5},{x:4,y:5},{x:3,y:5}];
-  let dir = {x:1,y:0};
-  let food = {x:10,y:6};
+function drawBird() {
+  ctx.beginPath();
+  ctx.fillStyle = "#2a2a2a";
+  ctx.ellipse(bird.x, bird.y, 18, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  function step(){
-    cols = Math.floor(c.width / cell);
-    rows = Math.floor(c.height / cell);
+  ctx.beginPath();
+  ctx.fillStyle = "#f4f4f4";
+  ctx.ellipse(bird.x + 5, bird.y + 5, 10, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+  ctx.beginPath();
+  ctx.fillStyle = "#444";
+  ctx.ellipse(bird.x - 2, bird.y, 10, 6, -0.3, 0, Math.PI * 2);
+  ctx.fill();
 
-    if (head.x < 0 || head.x >= cols) dir.x *= -1;
-    if (head.y < 0 || head.y >= rows) dir.y *= -1;
+  ctx.beginPath();
+  ctx.fillStyle = "#fff";
+  ctx.arc(bird.x + 10, bird.y - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
 
-    const newHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-    snake.unshift(newHead);
-    if (newHead.x === food.x && newHead.y === food.y) {
-      food = {x: Math.floor(Math.random()*cols), y: Math.floor(Math.random()*rows)};
-    } else {
-      snake.pop();
-    }
-  }
+  ctx.beginPath();
+  ctx.fillStyle = "#000";
+  ctx.arc(bird.x + 11, bird.y - 4, 1.5, 0, Math.PI * 2);
+  ctx.fill();
 
-  function draw(){
-    ctx.fillStyle = "#020617";
-    ctx.fillRect(0,0,c.width,c.height);
+  ctx.beginPath();
+  ctx.fillStyle = "#ffb74d";
+  ctx.moveTo(bird.x + 16, bird.y - 1);
+  ctx.lineTo(bird.x + 24, bird.y + 2);
+  ctx.lineTo(bird.x + 16, bird.y + 4);
+  ctx.closePath();
+  ctx.fill();
+}
 
-    ctx.fillStyle = "#f97316";
-    ctx.beginPath();
-    ctx.arc(food.x*cell+cell/2, food.y*cell+cell/2, cell/2-2, 0, Math.PI*2);
-    ctx.fill();
+function drawObstacles() {
+  obstacles.forEach(o => {
+    const grad = ctx.createLinearGradient(o.x, 0, o.x + o.w, 0);
+    grad.addColorStop(0, "#7cb342");
+    grad.addColorStop(1, "#558b2f");
+    ctx.fillStyle = grad;
 
-    for (let i=0;i<snake.length;i++){
-      ctx.fillStyle = i===0 ? "#22c55e" : "#16a34a";
-      ctx.fillRect(snake[i].x*cell, snake[i].y*cell, cell-1, cell-1);
-    }
-  }
+    ctx.fillRect(o.x, 0, o.w, o.top);
+    ctx.fillRect(o.x, o.bottom, o.w, canvas.height - o.bottom);
 
-  setInterval(()=>{ step(); draw(); }, 140);
-})();
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    for (let y = 0; y < o.top; y += 40) ctx.fillRect(o.x, y, o.w, 3);
+    for (let y = o.bottom; y < canvas.height; y += 40) ctx.fillRect(o.x, y, o.w, 3);
+  });
+}
 
-// ---------- BIRD PREVIEW (LAYOUT REAL DO JOGO) ----------
-(function(){
-  const c = document.getElementById("birdPrev");
-  const ctx = c.getContext("2d");
+function update() {
+  if (!running || gameOver) return;
 
-  function resize(){
-    c.width = c.clientWidth;
-    c.height = c.clientHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
+  bird.vy += gravity;
+  bird.y += bird.vy;
 
-  let bird = { x: 60, y: 80, vy: 0, r: 8 };
-  let obstacles = [];
-  let speed = 1.5;
-  let gravity = 0.25;
-  let groundOffset = 0;
-  let lastSpawn = 0;
+  if (bird.y < 0 || bird.y > canvas.height) endGame();
 
-  function spawnObstacle(){
-    const gap = 80;
-    const top = 30 + Math.random() * (c.height - gap - 80);
-    obstacles.push({ x: c.width + 30, top, bottom: top + gap, w: 16 });
-  }
+  obstacles.forEach(o => o.x -= speed);
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
 
-  function drawBackground(){
-    const sky = ctx.createLinearGradient(0,0,0,c.height);
-    sky.addColorStop(0, "#7ec8ff");
-    sky.addColorStop(1, "#dff5ff");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0,0,c.width,c.height);
-
-    ctx.fillStyle = "#6fbf73";
-    ctx.beginPath();
-    ctx.moveTo(0, c.height*0.7);
-    ctx.quadraticCurveTo(c.width*0.25, c.height*0.55, c.width*0.5, c.height*0.7);
-    ctx.quadraticCurveTo(c.width*0.75, c.height*0.85, c.width, c.height*0.7);
-    ctx.lineTo(c.width, c.height);
-    ctx.lineTo(0, c.height);
-    ctx.closePath();
-    ctx.fill();
-
-    groundOffset = (groundOffset - speed) % 20;
-    ctx.fillStyle = "#3e8e41";
-    for (let x = groundOffset; x < c.width; x += 20) {
-      ctx.fillRect(x, c.height - 16, 10, 16);
-    }
-  }
-
-  function drawBird(){
-    ctx.beginPath();
-    ctx.fillStyle = "#2a2a2a";
-    ctx.ellipse(bird.x, bird.y, 8, 6, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.fillStyle = "#f4f4f4";
-    ctx.ellipse(bird.x+3, bird.y+2, 5, 4, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.fillStyle = "#ffb74d";
-    ctx.moveTo(bird.x+6, bird.y);
-    ctx.lineTo(bird.x+11, bird.y+2);
-    ctx.lineTo(bird.x+6, bird.y+3);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawObstacles(){
-    obstacles.forEach(o=>{
-      const grad = ctx.createLinearGradient(o.x,0,o.x+o.w,0);
-      grad.addColorStop(0,"#7cb342");
-      grad.addColorStop(1,"#558b2f");
-      ctx.fillStyle = grad;
-      ctx.fillRect(o.x,0,o.w,o.top);
-      ctx.fillRect(o.x,o.bottom,o.w,c.height-o.bottom);
-    });
-  }
-
-  function step(){
-    bird.vy += gravity;
-    bird.y += bird.vy;
-    if (bird.y > c.height*0.6 || bird.y < 20) bird.vy = -2;
-
-    obstacles.forEach(o=>o.x-=speed);
-    obstacles = obstacles.filter(o=>o.x+o.w>0);
-
-    if (Date.now()-lastSpawn>1200){
-      spawnObstacle();
-      lastSpawn = Date.now();
-    }
-  }
-
-  function draw(){
-    drawBackground();
-    drawObstacles();
-    drawBird();
+  if (Date.now() - lastSpawn > 1500) {
+    spawnObstacle();
+    lastSpawn = Date.now();
   }
 
-  setInterval(()=>{ step(); draw(); }, 40);
-})();
+  obstacles.forEach(o => {
+    if (
+      bird.x + bird.r > o.x &&
+      bird.x - bird.r < o.x + o.w &&
+      (bird.y - bird.r < o.top || bird.y + bird.r > o.bottom)
+    ) endGame();
+  });
+
+  meters += 0.1;
+  document.getElementById("meters").innerText = Math.floor(meters) + " m";
+}
+
+function draw() {
+  drawBackground();
+  drawObstacles();
+  drawBird();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function jump() {
+  if (running && !gameOver) bird.vy = jumpForce;
+}
+
+function endGame() {
+  const atual = Math.floor(meters);
+  if (atual > record) {
+    record = atual;
+    localStorage.setItem("recordColeirinho", record);
+  }
+  document.getElementById("record").innerText = "Recorde: " + record + " m";
+
+  gameOver = true;
+  running = false;
+  overlay.style.display = "flex";
+  overlayText.innerText = "Você voou " + atual + " metros";
+  playBtn.innerText = "Jogar novamente";
+}
+
+playBtn.addEventListener("click", () => {
+  if (gameOver) init();
+  startGame();
+});
+
+window.addEventListener("click", jump);
+window.addEventListener("touchstart", jump);
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") jump();
+});
+
+init();
+loop();
 </script>
 
 </body>
