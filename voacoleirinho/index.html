@@ -40,6 +40,17 @@
     background: #ffca28;
   }
 
+  #record {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 16px;
+    color: #1b3a1b;
+    background: rgba(255,255,255,0.75);
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+
   #meters {
     position: absolute;
     top: 10px;
@@ -56,6 +67,7 @@
 <body>
 
 <canvas id="gameCanvas"></canvas>
+<div id="record">Recorde: 0 m</div>
 <div id="meters">0 m</div>
 
 <div id="overlay">
@@ -69,6 +81,9 @@ const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlayText");
 const playBtn = document.getElementById("playBtn");
+
+let record = parseInt(localStorage.getItem("recordColeirinho")) || 0;
+document.getElementById("record").innerText = "Recorde: " + record + " m";
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -98,7 +113,6 @@ function init() {
   groundOffset = 0;
 
   document.getElementById("meters").innerText = "0 m";
-
   overlay.style.display = "flex";
   overlayText.innerText = "Voo do Coleirinho";
   playBtn.innerText = "Jogar";
@@ -242,10 +256,17 @@ function jump() {
 }
 
 function endGame() {
+  const atual = Math.floor(meters);
+  if (atual > record) {
+    record = atual;
+    localStorage.setItem("recordColeirinho", record);
+  }
+  document.getElementById("record").innerText = "Recorde: " + record + " m";
+
   gameOver = true;
   running = false;
   overlay.style.display = "flex";
-  overlayText.innerText = "Você voou " + Math.floor(meters) + " metros";
+  overlayText.innerText = "Você voou " + atual + " metros";
   playBtn.innerText = "Jogar novamente";
 }
 
