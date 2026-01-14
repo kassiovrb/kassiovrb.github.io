@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Voo do Coleirinho</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: #87CEEB;
+  }
+
+  #gameCanvas {
+    display: block;
+  }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    font-size: 26px;
+    text-align: center;
+  }
+
+  #overlay button {
+    margin-top: 20px;
+    padding: 16px 36px;
+    font-size: 22px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    background: #ffca28;
+  }
+
+  #meters {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    color: #1b3a1b;
+    background: rgba(255,255,255,0.75);
+    padding: 6px 14px;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="meters">0 m</div>
+
+<div id="overlay">
+  <div id="overlayText">Voo do Coleirinho</div>
+  <button id="playBtn">Jogar</button>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const overlay = document.getElementById("overlay");
+const overlayText = document.getElementById("overlayText");
+const playBtn = document.getElementById("playBtn");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+let bird, obstacles, gravity, jumpForce, speed, meters, gameOver, running;
+let groundOffset = 0;
+
+function init() {
+  bird = {
+    x: canvas.width * 0.25,
+    y: canvas.height / 2,
+    vy: 0,
+    r: 18
+  };
+
+  obstacles = [];
+  gravity = 0.35;
+  jumpForce = -6;
+  speed = 2;
+  meters = 0;
+  gameOver = false;
+  running = false;
+  groundOffset = 0;
+
+  document.getElementById("meters").innerText = "0 m";
+
+  overlay.style.display = "flex";
+  overlayText.innerText = "Voo do Coleirinho";
+  playBtn.innerText = "Jogar";
+}
+
+function startGame() {
+  overlay.style.display = "none";
+  running = true;
+}
+
+function spawnObstacle() {
+  const gap = 200;
+  const topHeight = 80 + Math.random() * (canvas.height - gap - 200);
+  obstacles.push({
+    x: canvas.width + 60,
+    top: topHeight,
+    bottom: topHeight + gap,
+    w: 48
+  });
+}
+
+let lastSpawn = 0;
+
+function drawBackground() {
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#7ec8ff");
+  sky.addColorStop(1, "#dff5ff");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#6fbf73";
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height * 0.7);
+  ctx.quadraticCurveTo(canvas.width * 0.25, canvas.height * 0.55, canvas.width * 0.5, canvas.height * 0.7);
+  ctx.quadraticCurveTo(canvas.width * 0.75, canvas.height * 0.85, canvas.width, canvas.height * 0.7);
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.lineTo(0, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+
+  groundOffset = (groundOffset - speed) % 40;
+  ctx.fillStyle = "#3e8e41";
+  for (let x = groundOffset; x < canvas.width; x += 40) {
+    ctx.fillRect(x, canvas.height - 30, 20, 30);
+  }
+}
+
+function drawBird() {
+  ctx.beginPath();
+  ctx.fillStyle = "#2a2a2a";
+  ctx.ellipse(bird.x, bird.y, 18, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "#f4f4f4";
+  ctx.ellipse(bird.x + 5, bird.y + 5, 10, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "#444";
+  ctx.ellipse(bird.x - 2, bird.y, 10, 6, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "#fff";
+  ctx.arc(bird.x + 10, bird.y - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "#000";
+  ctx.arc(bird.x + 11, bird.y - 4, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "#ffb74d";
+  ctx.moveTo(bird.x + 16, bird.y - 1);
+  ctx.lineTo(bird.x + 24, bird.y + 2);
+  ctx.lineTo(bird.x + 16, bird.y + 4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawObstacles() {
+  obstacles.forEach(o => {
+    const grad = ctx.createLinearGradient(o.x, 0, o.x + o.w, 0);
+    grad.addColorStop(0, "#7cb342");
+    grad.addColorStop(1, "#558b2f");
+    ctx.fillStyle = grad;
+
+    ctx.fillRect(o.x, 0, o.w, o.top);
+    ctx.fillRect(o.x, o.bottom, o.w, canvas.height - o.bottom);
+
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    for (let y = 0; y < o.top; y += 40) ctx.fillRect(o.x, y, o.w, 3);
+    for (let y = o.bottom; y < canvas.height; y += 40) ctx.fillRect(o.x, y, o.w, 3);
+  });
+}
+
+function update() {
+  if (!running || gameOver) return;
+
+  bird.vy += gravity;
+  bird.y += bird.vy;
+
+  if (bird.y < 0 || bird.y > canvas.height) endGame();
+
+  obstacles.forEach(o => o.x -= speed);
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  if (Date.now() - lastSpawn > 1500) {
+    spawnObstacle();
+    lastSpawn = Date.now();
+  }
+
+  obstacles.forEach(o => {
+    if (
+      bird.x + bird.r > o.x &&
+      bird.x - bird.r < o.x + o.w &&
+      (bird.y - bird.r < o.top || bird.y + bird.r > o.bottom)
+    ) endGame();
+  });
+
+  meters += 0.1;
+  document.getElementById("meters").innerText = Math.floor(meters) + " m";
+}
+
+function draw() {
+  drawBackground();
+  drawObstacles();
+  drawBird();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function jump() {
+  if (running && !gameOver) bird.vy = jumpForce;
+}
+
+function endGame() {
+  gameOver = true;
+  running = false;
+  overlay.style.display = "flex";
+  overlayText.innerText = "Você voou " + Math.floor(meters) + " metros";
+  playBtn.innerText = "Jogar novamente";
+}
+
+playBtn.addEventListener("click", () => {
+  if (gameOver) init();
+  startGame();
+});
+
+window.addEventListener("click", jump);
+window.addEventListener("touchstart", jump);
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") jump();
+});
+
+init();
+loop();
+</script>
+
+</body>
+</html>
