@@ -243,9 +243,11 @@ function update() {
   });
 
   meters += 0.1;
-  document.getElementById("meters").innerText = Math.floor(meters) + " m";
-}
+document.getElementById("meters").innerText = Math.floor(meters) + " m";
 
+const extra = Math.max(0, meters - 50);
+speed = 2 + extra * 0.0090;
+}
 function draw() {
   drawBackground();
   drawObstacles();
