@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jogos Kassio</title>
+<title>MobilePlay</title>
 <style>
   body {
     margin: 0;
@@ -21,11 +21,30 @@
     box-sizing: border-box;
   }
 
-  h1 {
+  .logo {
     text-align: center;
-    margin: 8px 0 16px;
-    font-size: 22px;
+    margin: 10px 0 18px;
+    font-size: 28px;
+    font-weight: 700;
     letter-spacing: .5px;
+  }
+
+  .logo .mobile {
+    color: #e5e7eb;
+  }
+
+  .logo .play {
+    color: #22c55e;
+    margin-left: 4px;
+    position: relative;
+  }
+
+  .logo .play::before {
+    content: "▶";
+    font-size: 16px;
+    margin-right: 6px;
+    vertical-align: middle;
+    color: #22c55e;
   }
 
   .cards {
@@ -88,16 +107,18 @@
 <body>
 
 <div class="app">
-  <h1>Escolha seu jogo</h1>
+  <div class="logo">
+    <span class="mobile">Mobile</span><span class="play">Play</span>
+  </div>
 
   <div class="cards">
-    <a class="card" href="https://kassiovrb.github.io/jogodacobrinha/">
+    <a class="card" href="/jogodacobrinha/">
       <canvas id="snakePrev"></canvas>
       <div class="label">Snake</div>
       <div class="hint">Jogar</div>
     </a>
 
-    <a class="card" href="https://kassiovrb.github.io/voacoleirinho/">
+    <a class="card" href="/voacoleirinho/">
       <canvas id="birdPrev"></canvas>
       <div class="label">Voa Coleirinho</div>
       <div class="hint">Jogar</div>
@@ -160,7 +181,7 @@
   setInterval(()=>{ step(); draw(); }, 140);
 })();
 
-// ---------- BIRD PREVIEW (LAYOUT REAL DO JOGO) ----------
+// ---------- BIRD PREVIEW ----------
 (function(){
   const c = document.getElementById("birdPrev");
   const ctx = c.getContext("2d");
