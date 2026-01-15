@@ -90,28 +90,42 @@
 
   /* CONTROLES */
   #controls {
-  margin-top: 5px;
-  display: grid;
-  grid-template-columns: 110px 110px 110px;
-  grid-template-rows: 92px 92px 92px;
-  gap: 1px;
-  justify-content: center;
-}
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: 110px 110px 110px;
+    grid-template-rows: 92px 92px 92px;
+    gap: 1px;
+    justify-content: center;
+  }
 
-.ctrl {
-  background: #1e293b;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  user-select: none;
-  touch-action: manipulation;
-}
-
+  .ctrl {
+    background: #1e293b;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    user-select: none;
+    touch-action: manipulation;
+  }
 
   .ctrl:active { background: #334155; }
   .empty { background: transparent; }
+
+  /* AJUSTE PARA TELAS MAIS BAIXAS (Android menores) */
+  @media (max-height: 720px) {
+    #controls {
+      margin-top: 2px;
+      grid-template-columns: 88px 88px 88px;
+      grid-template-rows: 76px 76px 76px;
+      gap: 4px;
+    }
+
+    .ctrl {
+      font-size: 24px;
+      border-radius: 12px;
+    }
+  }
 </style>
 </head>
 <body>
