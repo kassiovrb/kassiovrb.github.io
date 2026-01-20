@@ -97,14 +97,25 @@ window.addEventListener("resize", resize);
 resize();
 
 function tableRect() {
-  const margin = W * 0.015;   // antes era 0.05
-  const border = W * 0.02;    // levemente menor também
+  const border = W * 0.02;
+
+  // Altura máxima da mesa (85% da tela)
+  const maxH = H * 0.85;
+
+  // Mantém proporção mais “real” (altura ~ 2x largura)
+  const desiredH = W * 2.1;
+
+  const h = Math.min(maxH, desiredH);
+  const w = W * 0.95;
+
+  const x = (W - w) / 2;
+  const y = (H - h) / 2;
 
   return {
-    x: margin + border,
-    y: margin + border,
-    w: W - (margin + border) * 2,
-    h: H - (margin + border) * 2,
+    x: x + border,
+    y: y + border,
+    w: w - border * 2,
+    h: h - border * 2,
     border
   };
 }
