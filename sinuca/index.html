@@ -97,8 +97,9 @@ window.addEventListener("resize", resize);
 resize();
 
 function tableRect() {
-  const margin = W * 0.05;
-  const border = W * 0.025;
+  const margin = W * 0.015;   // antes era 0.05
+  const border = W * 0.02;    // levemente menor também
+
   return {
     x: margin + border,
     y: margin + border,
@@ -206,12 +207,17 @@ setupBalls();
 function pockets() {
   const t = tableRect();
   return [
-    {x: t.x, y: t.y},
-    {x: t.x + t.w/2, y: t.y},
-    {x: t.x + t.w, y: t.y},
-    {x: t.x, y: t.y + t.h},
-    {x: t.x + t.w/2, y: t.y + t.h},
-    {x: t.x + t.w, y: t.y + t.h}
+    // Cantos superiores
+    { x: t.x, y: t.y },
+    { x: t.x + t.w, y: t.y },
+
+    // Meio das laterais
+    { x: t.x, y: t.y + t.h / 2 },
+    { x: t.x + t.w, y: t.y + t.h / 2 },
+
+    // Cantos inferiores
+    { x: t.x, y: t.y + t.h },
+    { x: t.x + t.w, y: t.y + t.h }
   ];
 }
 
