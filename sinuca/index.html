@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sinuca Mobile</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #111;
+}
+canvas {
+  display: block;
+  touch-action: none;
+}
+#ui {
+  position: fixed;
+  top: 2%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 3.5vw;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Forçar retrato */
+@media screen and (orientation: landscape) and (max-width: 900px) {
+  body::before {
+    content: "Gire o celular para a vertical";
+    position: fixed;
+    inset: 0;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6vw;
+    z-index: 9999;
+  }
+}
+</style>
+</head>
+
+<body>
+<div id="ui"></div>
+
+<div id="endScreen" style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  z-index: 20;
+">
+  <div id="endText" style="font-size: 7vw; margin-bottom: 5vw;"></div>
+  <button onclick="restartGame()" style="
+    padding: 3vw 6vw;
+    font-size: 4vw;
+    border: none;
+    border-radius: 2vw;
+    background: #0b5;
+    color: #fff;
+  ">Jogar novamente</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const endScreen = document.getElementById("endScreen");
+const endText = document.getElementById("endText");
+
+let cuePocketed = false;
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const ui = document.getElementById("ui");
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+function tableRect() {
+  const margin = W * 0.05;
+  const border = W * 0.025;
+  return {
+    x: margin + border,
+    y: margin + border,
+    w: W - (margin + border) * 2,
+    h: H - (margin + border) * 2,
+    border
+  };
+}
+
+const balls = [];
+let cueBall;
+const R = () => Math.min(W, H) * 0.018;
+
+class Ball {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.color = color;
+    this.r = R();
+    this.alive = true;
+    this.sinking = false;
+    this.scale = 1;
+
+  }
+  update() {
+  if (!this.alive && !this.sinking) return;
+
+  if (this.sinking) {
+    this.scale *= 0.85;
+    if (this.scale < 0.05) {
+      this.sinking = false;
+      this.alive = false;
+    }
+    return;
+  }
+
+  this.x += this.vx;
+  this.y += this.vy;
+  this.vx *= 0.99;
+  this.vy *= 0.99;
+
+  const t = tableRect();
+  if (this.x - this.r < t.x) { this.x = t.x + this.r; this.vx *= -1; }
+  if (this.x + this.r > t.x + t.w) { this.x = t.x + t.w - this.r; this.vx *= -1; }
+  if (this.y - this.r < t.y) { this.y = t.y + this.r; this.vy *= -1; }
+  if (this.y + this.r > t.y + t.h) { this.y = t.y + t.h - this.r; this.vy *= -1; }
+}
+  draw() {
+  if (!this.alive && !this.sinking) return;
+
+  ctx.beginPath();
+  ctx.arc(this.x, this.y, this.r * this.scale, 0, Math.PI * 2);
+  ctx.fillStyle = this.color;
+  ctx.fill();
+}
+}
+
+function setupBalls() {
+  balls.length = 0;
+  const t = tableRect();
+  const cx = t.x + t.w / 2;
+  let y = t.y + t.h * 0.25;
+
+  const colors = [];
+for (let i = 0; i < 8; i++) colors.push("red");
+for (let i = 0; i < 8; i++) colors.push("blue");
+
+// Embaralha as cores
+for (let i = colors.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [colors[i], colors[j]] = [colors[j], colors[i]];
+}
+
+
+  let idx = 0;
+
+// Triângulo principal (15 bolas)
+for (let row = 0; row < 5; row++) {
+  for (let col = 0; col <= row && idx < colors.length; col++) {
+    balls.push(new Ball(
+      cx + (col - row / 2) * R() * 2.2,
+      y + row * R() * 2.2,
+      colors[idx++]
+    ));
+  }
+}
+
+// Bola extra centralizada logo abaixo (16ª bola)
+if (idx < colors.length) {
+  balls.push(new Ball(
+    cx,
+    y + 5 * R() * 2.2,
+    colors[idx++]
+  ));
+}
+
+  const white = new Ball(cx, t.y + t.h * 0.75, "white");
+  balls.push(white);
+  cueBall = white;
+}
+setupBalls();
+
+function pockets() {
+  const t = tableRect();
+  return [
+    {x: t.x, y: t.y},
+    {x: t.x + t.w/2, y: t.y},
+    {x: t.x + t.w, y: t.y},
+    {x: t.x, y: t.y + t.h},
+    {x: t.x + t.w/2, y: t.y + t.h},
+    {x: t.x + t.w, y: t.y + t.h}
+  ];
+}
+
+function handleCollisions() {
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      const a = balls[i];
+      const b = balls[j];
+      if (!a.alive || !b.alive) continue;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      const min = a.r + b.r;
+
+      if (dist < min) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const p = 2 * (a.vx * nx + a.vy * ny - b.vx * nx - b.vy * ny) / 2;
+
+        a.vx -= p * nx;
+        a.vy -= p * ny;
+        b.vx += p * nx;
+        b.vy += p * ny;
+
+        const overlap = min - dist;
+        a.x -= nx * overlap / 2;
+        a.y -= ny * overlap / 2;
+        b.x += nx * overlap / 2;
+        b.y += ny * overlap / 2;
+      }
+    }
+  }
+}
+
+let lastPocketed = [];
+
+
+function checkPockets() {
+  const ps = pockets();
+  
+  for (const b of balls) {
+    if (!b.alive && !b.sinking) continue;
+
+    for (const p of ps) {
+      if (!b.sinking && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 2.4) {
+        if (b === cueBall) {
+          // Branca: apenas marca que caiu
+          cuePocketed = true;
+          b.vx = b.vy = 0;
+        } else {
+          // Outras bolas: afundam normalmente
+          b.vx = b.vy = 0;
+          b.sinking = true;
+          b.scale = 1;
+          lastPocketed.push(b.color);
+        }
+      }
+    }
+  }
+}
+
+let playerColor = Math.random() < 0.5 ? "red" : "blue";
+let aiColor = playerColor === "red" ? "blue" : "red";
+let turn = "player";
+let gameOver = false;
+let shotTaken = false;
+
+ui.innerText = `Você é ${playerColor === "red" ? "VERMELHO" : "AZUL"} | Sua vez`;
+
+let aiming = false;
+let startX = 0, startY = 0;
+let aimX = 0, aimY = 0;
+
+function pointerDown(x, y) {
+  if (gameOver) return;
+  if (turn !== "player") return;
+  if (isMoving()) return;
+  if (!cueBall.alive) return;
+
+  const dx = x - cueBall.x;
+  const dy = y - cueBall.y;
+  if (Math.hypot(dx, dy) < cueBall.r * 3) {
+    aiming = true;
+    startX = x;
+    startY = y;
+    aimX = x;
+    aimY = y;
+  }
+}
+function pointerMove(x, y) {
+  if (!aiming) return;
+  aimX = x;
+  aimY = y;
+}
+function pointerUp() {
+  if (!aiming) return;
+  aiming = false;
+
+  const dx = cueBall.x - aimX;
+  const dy = cueBall.y - aimY;
+
+  let dist = Math.hypot(dx, dy);
+  dist = Math.min(dist, W * 0.40);
+
+  const force = dist * 0.15;
+
+  cueBall.vx = (dx / dist) * force;
+  cueBall.vy = (dy / dist) * force;
+
+shotTaken = true;
+
+}
+
+canvas.addEventListener("mousedown", e => pointerDown(e.clientX, e.clientY));
+canvas.addEventListener("mousemove", e => pointerMove(e.clientX, e.clientY));
+canvas.addEventListener("mouseup", pointerUp);
+canvas.addEventListener("touchstart", e => pointerDown(e.touches[0].clientX, e.touches[0].clientY));
+canvas.addEventListener("touchmove", e => pointerMove(e.touches[0].clientX, e.touches[0].clientY));
+canvas.addEventListener("touchend", pointerUp);
+
+function isMoving() {
+  return balls.some(b => Math.hypot(b.vx, b.vy) > 0.1);
+}
+
+function count(color) {
+  return balls.filter(b => b.color === color && !b.alive).length;
+}
+
+function endTurn() {
+  const pocketedThisTurn = [...lastPocketed];
+  const whiteFoul = cuePocketed;
+
+  // limpa estados
+  lastPocketed = [];
+  cuePocketed = false;
+
+  // --- REGRA DA BRANCA ---
+  if (whiteFoul) {
+    const t = tableRect();
+
+    // Reposiciona a branca
+    cueBall.x = t.x + t.w / 2;
+    cueBall.y = t.y + t.h * 0.75;
+    cueBall.vx = cueBall.vy = 0;
+    cueBall.scale = 1;
+    cueBall.sinking = false;
+    cueBall.alive = true;
+
+    // Benefício para o adversário
+    const benefitColor = turn === "player" ? aiColor : playerColor;
+    const victim = balls.find(b => b.alive && b.color === benefitColor);
+
+    if (victim) {
+      victim.vx = victim.vy = 0;
+      victim.sinking = true;
+      victim.scale = 1;
+    }
+
+    // FALTA: sempre perde a vez
+    turn = turn === "player" ? "ai" : "player";
+  } else {
+    // --- JOGADA NORMAL ---
+    const currentColor = turn === "player" ? playerColor : aiColor;
+    const scored = pocketedThisTurn.includes(currentColor);
+
+    // Se não marcou ponto, troca a vez
+    if (!scored) {
+      turn = turn === "player" ? "ai" : "player";
+    }
+  }
+
+  // --- AGORA SIM VERIFICA VITÓRIA ---
+  if (count(playerColor) >= 8) {
+    gameOver = true;
+    endText.innerText = "Você ganhou!";
+    endScreen.style.display = "flex";
+    return;
+  }
+  if (count(aiColor) >= 8) {
+    gameOver = true;
+    endText.innerText = "Você perdeu!";
+    endScreen.style.display = "flex";
+    return;
+  }
+
+  // Atualiza interface / chama IA
+  if (turn === "player") {
+    ui.innerText = `Você é ${playerColor === "red" ? "VERMELHO" : "AZUL"} | Sua vez`;
+  } else {
+    ui.innerText = "Vez da máquina...";
+    setTimeout(aiPlay, 800);
+  }
+}
+
+function aiPlay() {
+  if (gameOver) return;
+
+  const candidates = balls.filter(b => b.alive && b.color === aiColor);
+  const ps = pockets();
+
+  let dx, dy;
+
+  if (candidates.length) {
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+
+    // acha a caçapa mais próxima
+    let bestPocket = ps[0];
+    let bestDist = Infinity;
+
+    for (const p of ps) {
+      const d = Math.hypot(target.x - p.x, target.y - p.y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestPocket = p;
+      }
+    }
+
+    const vx = bestPocket.x - target.x;
+    const vy = bestPocket.y - target.y;
+    const len = Math.hypot(vx, vy);
+
+    if (len > 0) {
+      const hitX = target.x - (vx / len) * target.r * 2;
+      const hitY = target.y - (vy / len) * target.r * 2;
+
+      dx = hitX - cueBall.x;
+      dy = hitY - cueBall.y;
+    }
+  }
+
+  // fallback: se algo deu errado, chuta em direção aleatória
+  if (!dx || !dy || Math.hypot(dx, dy) < 5) {
+    const angle = Math.random() * Math.PI * 2;
+    dx = Math.cos(angle);
+    dy = Math.sin(angle);
+  }
+
+  const dist = Math.hypot(dx, dy);
+  const error = (Math.random() - 0.5) * 0.25;
+  const angle = Math.atan2(dy, dx) + error;
+  const force = Math.min(dist, W * 0.35) * 0.12;
+
+  cueBall.vx = Math.cos(angle) * force;
+  cueBall.vy = Math.sin(angle) * force;
+
+  shotTaken = true;
+}
+
+function drawTable() {
+  const t = tableRect();
+
+  // Borda marrom
+  ctx.fillStyle = "#5b3a1e";
+  ctx.fillRect(t.x - t.border, t.y - t.border, t.w + t.border*2, t.h + t.border*2);
+
+  // Campo verde
+  ctx.fillStyle = "#0b5";
+  ctx.fillRect(t.x, t.y, t.w, t.h);
+
+  const ps = pockets();
+  for (const p of ps) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, R()*1.4, 0, Math.PI*2);
+    ctx.fillStyle = "#000";
+    ctx.fill();
+  }
+}
+
+function drawAim() {
+  if (!aiming || !cueBall.alive) return;
+
+  const dx = cueBall.x - aimX;
+  const dy = cueBall.y - aimY;
+
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath();
+  ctx.moveTo(cueBall.x, cueBall.y);
+  ctx.lineTo(cueBall.x + dx * 3, cueBall.y + dy * 3);
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.moveTo(cueBall.x, cueBall.y);
+  ctx.lineTo(aimX, aimY);
+  ctx.strokeStyle = "#caa472";
+  ctx.lineWidth = R() * 0.4;
+  ctx.stroke();
+}
+
+let waitingEnd = false;
+
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  drawTable();
+
+  balls.forEach(b => b.update());
+  handleCollisions();
+  checkPockets();
+
+  balls.forEach(b => b.draw());
+  drawAim();
+
+  if (shotTaken && !isMoving() && !waitingEnd) {
+  waitingEnd = true;
+  setTimeout(() => {
+    waitingEnd = false;
+    endTurn();
+    shotTaken = false;
+  }, 300);
+}
+
+function restartGame() {
+  endScreen.style.display = "none";
+  gameOver = false;
+
+  balls.length = 0;
+  setupBalls();
+
+  lastPocketed = [];
+  cuePocketed = false;
+  shotTaken = false;
+
+  playerColor = Math.random() < 0.5 ? "red" : "blue";
+  aiColor = playerColor === "red" ? "blue" : "red";
+  turn = "player";
+
+  ui.innerText = `Você é ${playerColor === "red" ? "VERMELHO" : "AZUL"} | Sua vez`;
+}
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
