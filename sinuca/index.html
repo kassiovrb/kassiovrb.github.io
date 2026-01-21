@@ -52,6 +52,36 @@ canvas {
 <body>
 <div id="ui"></div>
 
+<div id="startScreen" style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  z-index: 30;
+  text-align: center;
+  padding: 8vw;
+">
+  <div style="font-size: 2.5vw; line-height: 1.4; margin-bottom: 6vw;">
+    Toque na <b>bola branca</b>,<br>
+    puxe o dedo para trás e solte.<br><br>
+    Quanto mais puxar,<br>
+    mais forte será a tacada.
+  </div>
+  <button id="startBtn" style="
+    padding: 3vw 6vw;
+    font-size: 4vw;
+    border: none;
+    border-radius: 2vw;
+    background: #0b5;
+    color: #fff;
+  ">Entendi</button>
+</div>
+
 <div id="endScreen" style="
   position: fixed;
   inset: 0;
@@ -79,8 +109,17 @@ canvas {
 
 <script>
 
+const startScreen = document.getElementById("startScreen");
+const startBtn = document.getElementById("startBtn");
 const endScreen = document.getElementById("endScreen");
 const endText = document.getElementById("endText");
+
+let gameStarted = false;
+
+startBtn.addEventListener("click", () => {
+  startScreen.style.display = "none";
+  gameStarted = true;
+});
 
 let cuePocketed = false;
 
@@ -122,7 +161,7 @@ function tableRect() {
 
 const balls = [];
 let cueBall;
-const R = () => Math.min(W, H) * 0.023;
+const R = () => Math.min(W, H) * 0.018;
 
 class Ball {
   constructor(x, y, color) {
@@ -274,7 +313,7 @@ function checkPockets() {
     if (!b.alive && !b.sinking) continue;
 
     for (const p of ps) {
-      if (!b.sinking && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 3.0) {
+      if (!b.sinking && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 2.4) {
         if (b === cueBall) {
           // Branca: apenas marca que caiu
           cuePocketed = true;
@@ -308,6 +347,7 @@ function pointerDown(x, y) {
   if (turn !== "player") return;
   if (isMoving()) return;
   if (!cueBall.alive) return;
+  if (!gameStarted) return;
 
   const dx = x - cueBall.x;
   const dy = y - cueBall.y;
@@ -492,7 +532,7 @@ function drawTable() {
   const ps = pockets();
   for (const p of ps) {
     ctx.beginPath();
-    ctx.arc(p.x, p.y, R()*1.6, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, R()*1.4, 0, Math.PI*2);
     ctx.fillStyle = "#000";
     ctx.fill();
   }
@@ -535,15 +575,12 @@ function loop() {
   drawAim();
 
   if (shotTaken && !isMoving() && !waitingEnd) {
-    waitingEnd = true;
-    setTimeout(() => {
-      waitingEnd = false;
-      endTurn();
-      shotTaken = false;
-    }, 300);
-  }
-
-  requestAnimationFrame(loop);
+  waitingEnd = true;
+  setTimeout(() => {
+    waitingEnd = false;
+    endTurn();
+    shotTaken = false;
+  }, 300);
 }
 
 function restartGame() {
@@ -564,6 +601,8 @@ function restartGame() {
   ui.innerText = `Você é ${playerColor === "red" ? "VERMELHO" : "AZUL"} | Sua vez`;
 }
 
+  requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
