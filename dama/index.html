@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Damas – Jogador vs Máquina</title>
+
+<style>
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: #2b2b2b;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    touch-action: manipulation;
+    color:#fff;
+}
+
+#topBar{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:10px 0 6px 0;
+    font-size:50px;
+    font-weight:bold;
+}
+
+#turnText{
+    margin-bottom:6px;
+    text-align:center;
+}
+
+#capturedContainer{
+    display:flex;
+    gap:30px;
+}
+
+.capturedRow{
+    min-width:80px;
+    min-height:26px;
+    display:flex;
+    gap:6px;
+}
+
+#game {
+    width: 100%;
+    height: calc(100% - 50px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.side {
+    width: 10%;
+    min-width: 40px;
+    height: 92vmin;
+    max-height: 96%;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+}
+
+#warningText{
+    margin-top:6px;
+    font-size:30px;
+    color:#facc15; /* amarelo */
+    min-height:20px;
+}
+
+#board {
+    width: 72vmin;
+    height: 72vmin;
+    max-width: 76%;
+    max-height: 96%;
+    display: grid;
+    grid-template-columns: repeat(8, 12.5%);
+    grid-template-rows: repeat(8, 12.5%);
+    border: 8px solid #5b3a1a;
+    box-shadow: 0 0 20px rgba(0,0,0,.6);
+}
+
+.cell { position: relative; }
+.light { background: #f0d9b5; }
+.dark  { background: #b58863; }
+
+.piece {
+    position: absolute;
+    width: 72%;
+    height: 72%;
+    border-radius: 50%;
+    top: 14%;
+    left: 14%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 5px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.5);
+}
+
+.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); }
+.black { background: radial-gradient(circle at 30% 30%, #444, #000); }
+
+.selected { outline: 4px solid #00aaff; }
+
+.king::after {
+    content: "D";
+    color: gold;
+    font-size: 1.2em;
+    text-shadow: 0 0 3px #000;
+}
+
+.captured {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+}
+
+#overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.8);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:10;
+}
+
+#overlay button{
+    margin-top:20px;
+    padding:10px 20px;
+    font-size:50px;
+}
+</style>
+</head>
+<body>
+
+<div id="topBar">
+    <div id="turnText">Sua vez</div>
+    <div id="capturedContainer">
+        <div id="whiteCapturedTop" class="capturedRow"></div>
+        <div id="blackCapturedTop" class="capturedRow"></div>
+    </div>
+    <div id="warningText"></div>
+</div>
+
+<div id="game">
+        <div id="board"></div>
+    </div>
+
+<div id="overlay">
+    <h1 id="resultText"></h1>
+    <button onclick="init()">Reiniciar</button>
+</div>
+
+<script>
+const boardEl = document.getElementById("board");
+const whiteCapturedEl = document.getElementById("whiteCapturedTop");
+const blackCapturedEl = document.getElementById("blackCapturedTop");
+const turnText = document.getElementById("turnText");
+const topBar = document.getElementById("topBar");
+const overlay = document.getElementById("overlay");
+const resultText = document.getElementById("resultText");
+const warningText = document.getElementById("warningText");
+
+let board = [];
+let turn = "white";
+let forcedChain = null;
+let selected = null;
+let whiteCaptured = [];
+let blackCaptured = [];
+
+function init() {
+    board = Array.from({length:8},()=>Array(8).fill(null));
+    for(let r=0;r<3;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]={color:"black", king:false};
+    for(let r=5;r<8;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]={color:"white", king:false};
+    
+turn = "white";
+    updateTopBar();
+
+    forcedChain=null;
+    selected=null;
+    whiteCaptured=[];
+    blackCaptured=[];
+    overlay.style.display="none";
+    draw();
+}
+
+function showWarning(msg){
+    warningText.innerText = msg;
+}
+
+function clearWarning(){
+    warningText.innerText = "";
+}
+
+function draw() {
+    
+    boardEl.innerHTML="";
+    whiteCapturedEl.innerHTML="";
+    blackCapturedEl.innerHTML="";
+
+    for(const c of whiteCaptured){
+        const d=document.createElement("div");
+        d.className="captured "+c;
+        whiteCapturedEl.appendChild(d);
+    }
+    for(const c of blackCaptured){
+        const d=document.createElement("div");
+        d.className="captured "+c;
+        blackCapturedEl.appendChild(d);
+    }
+
+    let w=0,b=0;
+
+    for(let r=0;r<8;r++){
+        for(let c=0;c<8;c++){
+            const cell=document.createElement("div");
+            cell.className="cell "+(((r+c)%2===0)?"light":"dark");
+            cell.onclick=()=>onCell(r,c);
+
+            const p=board[r][c];
+            if(p){
+                p.color==="white"?w++:b++;
+                const el=document.createElement("div");
+                el.className="piece "+p.color+(p.king?" king":"")+(selected && selected.r===r && selected.c===c ? " selected":"");
+                cell.appendChild(el);
+            }
+            boardEl.appendChild(cell);
+        }
+    }
+
+    if(w===0 || b===0){
+        resultText.innerText = w===0 ? "Você perdeu!" : "Você ganhou!";
+        overlay.style.display="flex";
+    }
+}
+
+function dirs(){ return [[1,1],[1,-1],[-1,1],[-1,-1]]; }
+
+function getCaptures(r, c){
+    const p = board[r][c];
+    let caps = [];
+    if(!p) return caps;
+
+    if(!p.king){
+        const allowed = [[1,1],[1,-1],[-1,1],[-1,-1]];
+        for(const [dr,dc] of allowed){
+            const r1 = r + dr, c1 = c + dc;
+            const r2 = r + dr*2, c2 = c + dc*2;
+            if(board[r1]?.[c1] && board[r1][c1].color !== p.color && board[r2]?.[c2] === null){
+                caps.push({ r: r2, c: c2, capture: { r: r1, c: c1 } });
+            }
+        }
+        return caps;
+    }
+
+    for(const [dr,dc] of dirs()){
+        let rr = r + dr, cc = c + dc, found = null;
+        while(board[rr]?.[cc] !== undefined){
+            if(board[rr][cc]){
+                if(board[rr][cc].color === p.color) break;
+                if(found) break;
+                found = { r: rr, c: cc };
+            } else if(found){
+                caps.push({ r: rr, c: cc, capture: found });
+            }
+            rr += dr; cc += dc;
+        }
+    }
+    return caps;
+}
+
+function getSimpleMoves(r,c){
+    const p=board[r][c];
+    let moves=[];
+    const allowed = p.king ? dirs() : (p.color==="white" ? [[-1,1],[-1,-1]] : [[1,1],[1,-1]]);
+    for(const [dr,dc] of allowed){
+        let rr=r+dr, cc=c+dc;
+        while(board[rr]?.[cc]===null){
+            moves.push({r:rr,c:cc});
+            if(!p.king) break;
+            rr+=dr; cc+=dc;
+        }
+    }
+    return moves;
+}
+
+function maxCaptureCount(color){
+    let max=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+        const p=board[r][c];
+        if(p && p.color===color){
+            const n=getCaptures(r,c).length;
+            if(n>max) max=n;
+        }
+    }
+    return max;
+}
+
+function onCell(r,c){
+    if(turn!=="white") return;
+
+    if(forcedChain){
+        const moves=getCaptures(forcedChain.r,forcedChain.c);
+        const m=moves.find(x=>x.r===r&&x.c===c);
+        if(m){
+            clearWarning();
+            applyMove(forcedChain.r,forcedChain.c,m,true);
+        }
+        return;
+    }
+
+    const max = maxCaptureCount("white");
+    const p = board[r][c];
+
+    if(p && p.color==="white"){
+        if(max>0 && getCaptures(r,c).length===0){
+            showWarning("Você é obrigado a comer");
+            return;
+        }
+        clearWarning();
+        selected={r,c};
+        draw();
+        return;
+    }
+
+    if(!selected) return;
+
+    const caps = getCaptures(selected.r,selected.c);
+if(max>0){
+    const m=caps.find(x=>x.r===r&&x.c===c);
+    if(m){
+        clearWarning();                // <-- AQUI
+        applyMove(selected.r,selected.c,m,true);
+        selected=null;
+    }
+    return;
+}
+
+    const simples=getSimpleMoves(selected.r,selected.c);
+const s=simples.find(x=>x.r===r&&x.c===c);
+if(s){
+    clearWarning();                    // <-- AQUI
+    applyMove(selected.r,selected.c,s,false);
+    selected=null;
+}
+}
+
+function applyMove(r,c,m,isCapture){
+    const p = board[r][c];
+    board[r][c] = null;
+    board[m.r][m.c] = p;
+
+    if(m.capture){
+        const eaten = board[m.capture.r][m.capture.c];
+        if(eaten.color === "white") whiteCaptured.push("white");
+        else blackCaptured.push("black");
+        board[m.capture.r][m.capture.c] = null;
+    }
+
+    if(!p.king){
+        if(p.color==="white" && m.r===0) p.king=true;
+        if(p.color==="black" && m.r===7) p.king=true;
+    }
+
+    draw();
+
+    if(isCapture){
+        const next = getCaptures(m.r,m.c);
+        if(next.length){
+            forcedChain = {r:m.r,c:m.c};
+
+            // mantém selecionada para o jogador
+            if(p.color==="white"){
+                selected = forcedChain;
+                draw();
+            }
+
+            // máquina continua sozinha na cadeia
+            if(p.color === "black"){
+                setTimeout(() => {
+                    const moves = getCaptures(forcedChain.r, forcedChain.c);
+                    const choice = moves[Math.floor(Math.random() * moves.length)];
+                    applyMove(forcedChain.r, forcedChain.c, choice, true);
+                }, 300);
+            }
+
+            return; // não muda o turno ainda
+        }
+    }
+
+    // cadeia acabou
+    forcedChain = null;
+    selected = null;
+
+    // agora sim muda o turno
+    turn = (turn === "white") ? "black" : "white";
+    updateTopBar();
+
+    if(turn === "black"){
+        setTimeout(aiMove, 300);
+    }
+}
+
+function updateTopBar(){
+    turnText.innerText = turn === "white" ? "Sua vez" : "Vez da máquina";
+}
+
+function aiMove(){
+    const candidates = [];
+    const max = maxCaptureCount("black");
+
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+        const p = board[r][c];
+        if(p && p.color==="black"){
+            const caps = getCaptures(r,c);
+
+            if(caps.length){
+                if(caps.length === max){
+                    for(const m of caps){
+                        const chain = simulateChain(r,c,m,"black");
+                        let score = 150 + chain * 40;
+
+                        if(!p.king && m.r === 7) score += 60;
+                        if(p.king) score += 15;
+
+                        // penaliza se cair em casa ameaçada
+                        if(isSquareThreatened(m.r, m.c, "white")) score -= 40;
+
+                        // avalia resposta do jogador
+                        score -= evaluateOpponentResponse(r,c,m);
+
+                        candidates.push({r,c,m,isCapture:true,score});
+                    }
+                }
+            } else if(max === 0){
+                const simples = getSimpleMoves(r,c);
+                for(const s of simples){
+                    let score = 0;
+
+                    if(s.r > r) score += 6;
+                    if(s.r === 7) score += 35;
+                    if(p.king) score += 10;
+
+                    if(isSquareThreatened(s.r, s.c, "white")) score -= 45;
+
+                    score -= evaluateOpponentResponse(r,c,s);
+
+                    candidates.push({r,c,m:s,isCapture:false,score});
+                }
+            }
+        }
+    }
+
+    if(!candidates.length) return;
+
+    candidates.sort((a,b)=>b.score-a.score);
+
+    // leve aleatoriedade entre as melhores
+    const best = candidates.slice(0,3);
+    const choice = best[Math.floor(Math.random()*best.length)];
+
+    applyMove(choice.r, choice.c, choice.m, choice.isCapture);
+}
+
+function simulateChain(r,c,move,color){
+    // faz uma simulação superficial de cadeia
+    const temp = JSON.parse(JSON.stringify(board));
+
+    const p = temp[r][c];
+    temp[r][c] = null;
+    temp[move.r][move.c] = p;
+    if(move.capture) temp[move.capture.r][move.capture.c] = null;
+
+    return countFurtherCaptures(temp, move.r, move.c, color);
+}
+
+function countFurtherCaptures(tempBoard, r, c, color){
+    const p = tempBoard[r][c];
+    let best = 0;
+
+    const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+    for(const [dr,dc] of dirs){
+        let rr = r+dr, cc = c+dc, found=null;
+        while(tempBoard[rr]?.[cc]!==undefined){
+            if(tempBoard[rr][cc]){
+                if(tempBoard[rr][cc].color===color) break;
+                if(found) break;
+                found={r:rr,c:cc};
+            } else if(found){
+                const clone = JSON.parse(JSON.stringify(tempBoard));
+                const piece = clone[r][c];
+                clone[r][c]=null;
+                clone[rr][cc]=piece;
+                clone[found.r][found.c]=null;
+
+                const depth = 1 + countFurtherCaptures(clone, rr, cc, color);
+                best = Math.max(best, depth);
+            }
+            if(!p.king) break;
+            rr+=dr; cc+=dc;
+        }
+    }
+
+    return best;
+}
+
+function evaluateOpponentResponse(r,c,move){
+    // simula o tabuleiro após a jogada da IA
+    const temp = JSON.parse(JSON.stringify(board));
+    const p = temp[r][c];
+    temp[r][c] = null;
+    temp[move.r][move.c] = p;
+    if(move.capture) temp[move.capture.r][move.capture.c] = null;
+
+    // avalia o melhor lance do jogador
+    let worst = 0;
+
+    for(let i=0;i<8;i++) for(let j=0;j<8;j++){
+        const wp = temp[i][j];
+        if(wp && wp.color==="white"){
+            const caps = getCapturesOn(temp,i,j);
+            if(caps.length){
+                worst = Math.max(worst, caps.length * 40);
+            }
+        }
+    }
+
+    return worst;
+}
+
+function getCapturesOn(tempBoard,r,c){
+    const p = tempBoard[r][c];
+    if(!p) return [];
+    let caps = [];
+
+    if(!p.king){
+        const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+        for(const [dr,dc] of dirs){
+            const r1=r+dr,c1=c+dc,r2=r+dr*2,c2=c+dc*2;
+            if(tempBoard[r1]?.[c1] && tempBoard[r1][c1].color!==p.color && tempBoard[r2]?.[c2]===null){
+                caps.push({r:r2,c:c2});
+            }
+        }
+        return caps;
+    }
+
+    const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+    for(const [dr,dc] of dirs){
+        let rr=r+dr,cc=c+dc,found=null;
+        while(tempBoard[rr]?.[cc]!==undefined){
+            if(tempBoard[rr][cc]){
+                if(tempBoard[rr][cc].color===p.color) break;
+                if(found) break;
+                found={r:rr,c:cc};
+            } else if(found){
+                caps.push({r:rr,c:cc});
+            }
+            rr+=dr;cc+=dc;
+        }
+    }
+    return caps;
+}
+
+function isSquareThreatened(r,c,enemyColor){
+    for(let i=0;i<8;i++) for(let j=0;j<8;j++){
+        const p = board[i][j];
+        if(p && p.color===enemyColor){
+            const caps = getCaptures(i,j);
+            if(caps.some(x=>x.r===r && x.c===c)) return true;
+        }
+    }
+    return false;
+}
+
+init();
+</script>
+</body>
+</html>
