@@ -161,7 +161,7 @@ function tableRect() {
 
 const balls = [];
 let cueBall;
-const R = () => Math.min(W, H) * 0.018;
+const R = () => Math.min(W, H) * 0.023;
 
 class Ball {
   constructor(x, y, color) {
@@ -313,7 +313,7 @@ function checkPockets() {
     if (!b.alive && !b.sinking) continue;
 
     for (const p of ps) {
-      if (!b.sinking && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 2.4) {
+      if (!b.sinking && Math.hypot(b.x - p.x, b.y - p.y) < b.r * 3.0) {
         if (b === cueBall) {
           // Branca: apenas marca que caiu
           cuePocketed = true;
@@ -532,7 +532,7 @@ function drawTable() {
   const ps = pockets();
   for (const p of ps) {
     ctx.beginPath();
-    ctx.arc(p.x, p.y, R()*1.4, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, R()*1.6, 0, Math.PI*2);
     ctx.fillStyle = "#000";
     ctx.fill();
   }
