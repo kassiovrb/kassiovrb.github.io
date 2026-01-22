@@ -575,12 +575,15 @@ function loop() {
   drawAim();
 
   if (shotTaken && !isMoving() && !waitingEnd) {
-  waitingEnd = true;
-  setTimeout(() => {
-    waitingEnd = false;
-    endTurn();
-    shotTaken = false;
-  }, 300);
+    waitingEnd = true;
+    setTimeout(() => {
+      waitingEnd = false;
+      endTurn();
+      shotTaken = false;
+    }, 300);
+  }
+
+  requestAnimationFrame(loop);
 }
 
 function restartGame() {
@@ -599,10 +602,11 @@ function restartGame() {
   turn = "player";
 
   ui.innerText = `Você é ${playerColor === "red" ? "VERMELHO" : "AZUL"} | Sua vez`;
+
+  gameStarted = false;
+  startScreen.style.display = "flex";
 }
 
-  requestAnimationFrame(loop);
-}
 loop();
 </script>
 </body>
