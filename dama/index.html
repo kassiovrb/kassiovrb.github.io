@@ -46,11 +46,10 @@ html, body {
 
 #game {
     width: 100%;
-    height: calc(100% - 50px);
+    height: calc(100% - 90px); /* espaço maior para o topBar */
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
 }
 
 .side {
@@ -72,15 +71,10 @@ html, body {
 }
 
 #board {
-    width: 72vmin;
-    height: 72vmin;
-    max-width: 76%;
-    max-height: 96%;
-    display: grid;
-    grid-template-columns: repeat(8, 12.5%);
-    grid-template-rows: repeat(8, 12.5%);
-    border: 8px solid #5b3a1a;
-    box-shadow: 0 0 20px rgba(0,0,0,.6);
+    width: 94vmin;
+    height: 94vmin;
+    max-width: 98%;
+    max-height: 100%;
 }
 
 .cell { position: relative; }
