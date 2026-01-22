@@ -89,11 +89,6 @@
     height: 100%;
     display: block;
   }
-
-  .card:hover {
-    transform: translateY(-2px) scale(1.01);
-    box-shadow: 0 30px 60px rgba(0,0,0,.7);
-  }
 </style>
 </head>
 <body>
@@ -121,6 +116,12 @@
       <div class="label">Sinuca</div>
       <div class="hint">Jogar</div>
     </a>
+
+    <a class="card" href="https://kassiovrb.github.io/dama/">
+      <canvas id="damaPrev"></canvas>
+      <div class="label">Dama</div>
+      <div class="hint">Jogar</div>
+    </a>
   </div>
 </div>
 
@@ -129,126 +130,82 @@
 (function(){
   const c = document.getElementById("snakePrev");
   const ctx = c.getContext("2d");
+  function resize(){ c.width=c.clientWidth; c.height=c.clientHeight; }
+  resize(); window.addEventListener("resize", resize);
 
-  function resize(){
-    c.width = c.clientWidth;
-    c.height = c.clientHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
-  const cell = 12;
-  let snake = [{x:5,y:5},{x:4,y:5},{x:3,y:5}];
-  let dir = {x:1,y:0};
-  let food = {x:10,y:6};
+  const cell=12;
+  let snake=[{x:5,y:5},{x:4,y:5},{x:3,y:5}];
+  let dir={x:1,y:0};
+  let food={x:10,y:6};
 
   function step(){
-    const cols = Math.floor(c.width / cell);
-    const rows = Math.floor(c.height / cell);
-
-    let head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-    if (head.x < 0 || head.x >= cols) dir.x *= -1;
-    if (head.y < 0 || head.y >= rows) dir.y *= -1;
-
-    const newHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-    snake.unshift(newHead);
-
-    if (newHead.x === food.x && newHead.y === food.y) {
-      food = {x: Math.floor(Math.random()*cols), y: Math.floor(Math.random()*rows)};
-    } else {
-      snake.pop();
-    }
+    const cols=Math.floor(c.width/cell);
+    const rows=Math.floor(c.height/cell);
+    let head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(head.x<0||head.x>=cols) dir.x*=-1;
+    if(head.y<0||head.y>=rows) dir.y*=-1;
+    const nh={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    snake.unshift(nh);
+    if(nh.x===food.x&&nh.y===food.y){
+      food={x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};
+    } else snake.pop();
   }
-
   function draw(){
-    ctx.fillStyle = "#020617";
-    ctx.fillRect(0,0,c.width,c.height);
-
-    ctx.fillStyle = "#f97316";
+    ctx.fillStyle="#020617"; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle="#f97316";
     ctx.beginPath();
     ctx.arc(food.x*cell+cell/2, food.y*cell+cell/2, cell/2-2, 0, Math.PI*2);
     ctx.fill();
-
-    for (let i=0;i<snake.length;i++){
-      ctx.fillStyle = i===0 ? "#22c55e" : "#16a34a";
-      ctx.fillRect(snake[i].x*cell, snake[i].y*cell, cell-1, cell-1);
-    }
+    snake.forEach((s,i)=>{
+      ctx.fillStyle=i? "#16a34a":"#22c55e";
+      ctx.fillRect(s.x*cell,s.y*cell,cell-1,cell-1);
+    });
   }
-
-  setInterval(()=>{ step(); draw(); }, 140);
+  setInterval(()=>{step();draw();},140);
 })();
 
 // ---------- BIRD PREVIEW ----------
 (function(){
   const c = document.getElementById("birdPrev");
   const ctx = c.getContext("2d");
+  function resize(){ c.width=c.clientWidth; c.height=c.clientHeight; }
+  resize(); window.addEventListener("resize", resize);
 
-  function resize(){
-    c.width = c.clientWidth;
-    c.height = c.clientHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
-  let bird = { x: 60, y: 80, vy: 0 };
-  let obstacles = [];
-  let speed = 1.5;
-  let gravity = 0.25;
-  let lastSpawn = 0;
-
+  let bird={x:60,y:80,vy:0};
+  let obs=[]; let speed=1.5; let g=0.25; let last=0;
   function spawn(){
-    const gap = 80;
-    const top = 30 + Math.random() * (c.height - gap - 80);
-    obstacles.push({ x: c.width + 30, top, bottom: top + gap, w: 16 });
+    const gap=80;
+    const top=30+Math.random()*(c.height-gap-80);
+    obs.push({x:c.width+30,top,bottom:top+gap,w:16});
   }
-
   function step(){
-    bird.vy += gravity;
-    bird.y += bird.vy;
-    if (bird.y > c.height*0.6 || bird.y < 20) bird.vy = -2;
-
-    obstacles.forEach(o=>o.x-=speed);
-    obstacles = obstacles.filter(o=>o.x+o.w>0);
-
-    if (Date.now()-lastSpawn>1200){
-      spawn(); lastSpawn = Date.now();
-    }
+    bird.vy+=g; bird.y+=bird.vy;
+    if(bird.y>c.height*0.6||bird.y<20) bird.vy=-2;
+    obs.forEach(o=>o.x-=speed);
+    obs=obs.filter(o=>o.x+o.w>0);
+    if(Date.now()-last>1200){ spawn(); last=Date.now(); }
   }
-
   function draw(){
-    const g = ctx.createLinearGradient(0,0,0,c.height);
-    g.addColorStop(0,"#7ec8ff");
-    g.addColorStop(1,"#dff5ff");
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,c.width,c.height);
-
+    const g1=ctx.createLinearGradient(0,0,0,c.height);
+    g1.addColorStop(0,"#7ec8ff"); g1.addColorStop(1,"#dff5ff");
+    ctx.fillStyle=g1; ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle="#2a2a2a";
-    ctx.beginPath();
-    ctx.arc(bird.x,bird.y,7,0,Math.PI*2);
-    ctx.fill();
-
+    ctx.beginPath(); ctx.arc(bird.x,bird.y,7,0,Math.PI*2); ctx.fill();
     ctx.fillStyle="#558b2f";
-    obstacles.forEach(o=>{
+    obs.forEach(o=>{
       ctx.fillRect(o.x,0,o.w,o.top);
       ctx.fillRect(o.x,o.bottom,o.w,c.height-o.bottom);
     });
   }
-
-  setInterval(()=>{ step(); draw(); }, 40);
+  setInterval(()=>{step();draw();},40);
 })();
 
 // ---------- SINUCA PREVIEW ----------
 (function(){
-  const c = document.getElementById("snookerPrev");
-  const ctx = c.getContext("2d");
-
-  function resize(){
-    c.width = c.clientWidth;
-    c.height = c.clientHeight;
-  }
-  resize();
-  window.addEventListener("resize", resize);
-
+  const c=document.getElementById("snookerPrev");
+  const ctx=c.getContext("2d");
+  function resize(){ c.width=c.clientWidth; c.height=c.clientHeight; }
+  resize(); window.addEventListener("resize", resize);
   function R(){ return Math.min(c.width,c.height)*0.05; }
 
   let balls=[];
@@ -261,22 +218,17 @@
     balls.push({x:cx+20,y:cy-10,vx:0,vy:0,c:"red"});
     shoot();
   }
-
   function shoot(){
     const b=balls[0];
     const a=Math.random()*Math.PI*2;
-    b.vx=Math.cos(a)*3;
-    b.vy=Math.sin(a)*3;
+    b.vx=Math.cos(a)*3; b.vy=Math.sin(a)*3;
   }
-
   function step(){
     balls.forEach(b=>{
-      b.x+=b.vx; b.y+=b.vy;
-      b.vx*=0.99; b.vy*=0.99;
+      b.x+=b.vx; b.y+=b.vy; b.vx*=0.99; b.vy*=0.99;
       if(b.x<R()||b.x>c.width-R()) b.vx*=-1;
       if(b.y<R()||b.y>c.height-R()) b.vy*=-1;
     });
-
     for(let i=0;i<balls.length;i++){
       for(let j=i+1;j<balls.length;j++){
         const a=balls[i], b=balls[j];
@@ -285,48 +237,99 @@
         if(d<m){
           const nx=dx/d, ny=dy/d;
           const p=(a.vx*nx+a.vy*ny-b.vx*nx-b.vy*ny);
-          a.vx-=p*nx; a.vy-=p*ny;
-          b.vx+=p*nx; b.vy+=p*ny;
+          a.vx-=p*nx; a.vy-=p*ny; b.vx+=p*nx; b.vy+=p*ny;
         }
       }
     }
-
     if(balls.every(b=>Math.hypot(b.vx,b.vy)<0.1)) shoot();
+  }
+  function draw(){
+    const pad=8;
+    ctx.fillStyle="#5b3a1e"; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle="#0b5"; ctx.fillRect(pad,pad,c.width-pad*2,c.height-pad*2);
+    ctx.fillStyle="#000";
+    ctx.beginPath(); ctx.arc(pad,pad,R()*1.2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(c.width-pad,pad,R()*1.2,0,Math.PI*2); ctx.fill();
+    balls.forEach(b=>{
+      ctx.beginPath(); ctx.arc(b.x,b.y,R(),0,Math.PI*2);
+      ctx.fillStyle=b.c; ctx.fill();
+    });
+  }
+  setup();
+  setInterval(()=>{step();draw();},40);
+})();
+
+// ---------- DAMA PREVIEW ----------
+(function(){
+  const c=document.getElementById("damaPrev");
+  const ctx=c.getContext("2d");
+  function resize(){ c.width=c.clientWidth; c.height=c.clientHeight; }
+  resize(); window.addEventListener("resize", resize);
+
+  const board=[];
+  function reset(){
+    board.length=0;
+    for(let y=0;y<8;y++){
+      for(let x=0;x<8;x++){
+        if((x+y)%2===1 && y<3) board.push({x,y,color:"black"});
+        if((x+y)%2===1 && y>4) board.push({x,y,color:"white"});
+      }
+    }
+  }
+  reset();
+
+  let phase=0, t=0;
+  function step(){
+    t+=0.02;
+    if(t>1){ t=0; phase=(phase+1)%2; if(phase===0) reset(); }
   }
 
   function draw(){
-  // Borda
-  ctx.fillStyle="#5b3a1e";
-  ctx.fillRect(0,0,c.width,c.height);
+    const size=Math.min(c.width,c.height);
+    const pad=size*0.08;
+    const cell=(size-pad*2)/8;
 
-  // Mesa
-  const pad = 8;
-  ctx.fillStyle="#0b5";
-  ctx.fillRect(pad,pad,c.width-pad*2,c.height-pad*2);
+    // moldura madeira
+    ctx.fillStyle="#3b2412";
+    ctx.fillRect(0,0,size,size);
+    ctx.strokeStyle="#6b3f1d";
+    ctx.lineWidth=pad*0.3;
+    ctx.strokeRect(pad*0.3,pad*0.3,size-pad*0.6,size-pad*0.6);
 
-  // Caçapas (apenas 2 nos cantos superiores)
-  ctx.fillStyle = "#000";
-  ctx.beginPath();
-  ctx.arc(pad, pad, R()*1.2, 0, Math.PI*2);
-  ctx.fill();
+    // casas
+    for(let y=0;y<8;y++){
+      for(let x=0;x<8;x++){
+        ctx.fillStyle=((x+y)%2===0)?"#f0d9b5":"#b58863";
+        ctx.fillRect(pad+x*cell,pad+y*cell,cell,cell);
+      }
+    }
 
-  ctx.beginPath();
-  ctx.arc(c.width-pad, pad, R()*1.2, 0, Math.PI*2);
-  ctx.fill();
+    // anima uma peça branca avançando
+    let moving=null;
+    if(phase===1){
+      moving={x:2,y:5,tx:3,ty:4};
+    }
 
-  // Bolas
-  balls.forEach(b=>{
-    ctx.beginPath();
-    ctx.arc(b.x,b.y,R(),0,Math.PI*2);
-    ctx.fillStyle=b.c;
-    ctx.fill();
-  });
-}
+    board.forEach(p=>{
+      if(moving && p.x===moving.x && p.y===moving.y) return;
+      ctx.beginPath();
+      ctx.arc(pad+p.x*cell+cell/2,pad+p.y*cell+cell/2,cell*0.35,0,Math.PI*2);
+      ctx.fillStyle=p.color==="white"?"#eee":"#111";
+      ctx.fill();
+    });
 
-  setup();
-  setInterval(()=>{ step(); draw(); },40);
+    if(moving){
+      const mx=moving.x+(moving.tx-moving.x)*t;
+      const my=moving.y+(moving.ty-moving.y)*t;
+      ctx.beginPath();
+      ctx.arc(pad+mx*cell+cell/2,pad+my*cell+cell/2,cell*0.35,0,Math.PI*2);
+      ctx.fillStyle="#eee";
+      ctx.fill();
+    }
+  }
+
+  setInterval(()=>{step();draw();},40);
 })();
 </script>
-
 </body>
 </html>
